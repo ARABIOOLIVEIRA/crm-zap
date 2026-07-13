@@ -30,6 +30,8 @@ export default function PaginaCampanhas() {
   const [selecionadas, setSelecionadas] = useState([]);
   const [buscaEmpresa, setBuscaEmpresa] = useState("");
   const [confirmacaoExclusao, setConfirmacaoExclusao] = useState(null);
+  const [buscaCampanha, setBuscaCampanha] = useState("");
+  const [filtroSituacao, setFiltroSituacao] = useState("");
 
   function registrarMensagem(texto, titulo = "Campanhas") {
     setMensagem(texto);
@@ -107,15 +109,31 @@ export default function PaginaCampanhas() {
     return { pendentesAbordagem, enviados, respostas, followupsHoje };
   }
 
+  function situacaoCampanha(metricasCampanha) {
+    if (metricasCampanha.followupsHoje > 0) return "Follow-up hoje";
+    if (metricasCampanha.respostas > 0) return "Com respostas";
+    if (metricasCampanha.pendentesAbordagem > 0) return "Precisa abordar";
+    if (metricasCampanha.enviados > 0) return "Em acompanhamento";
+    return "Sem leads";
+  }
+
   const campanhasComMetricas = useMemo(() => {
+    const texto = buscaCampanha.toLowerCase().trim();
     return campanhas
       .map((campanha) => {
         const empresas = empresasPorCampanha[campanha.id] || [];
         const op = metricasOperacionais(empresas);
-        return { campanha, empresas, op };
+        const situacao = situacaoCampanha(op);
+        const prioridade = op.followupsHoje * 4 + op.respostas * 3 + op.pendentesAbordagem * 2 + op.enviados;
+        return { campanha, empresas, op, situacao, prioridade };
       })
-      .sort((a, b) => String(b.campanha.atualizado_em || "").localeCompare(String(a.campanha.atualizado_em || "")));
-  }, [campanhas, empresasPorCampanha]);
+      .filter(({ campanha, situacao }) => {
+        const bateTexto = !texto || [campanha.nome, campanha.nicho, campanha.cidade].filter(Boolean).join(" ").toLowerCase().includes(texto);
+        const bateSituacao = !filtroSituacao || situacao === filtroSituacao;
+        return bateTexto && bateSituacao;
+      })
+      .sort((a, b) => b.prioridade - a.prioridade || String(b.campanha.atualizado_em || "").localeCompare(String(a.campanha.atualizado_em || "")));
+  }, [campanhas, empresasPorCampanha, buscaCampanha, filtroSituacao]);
 
   async function criarCampanha(e) {
     e.preventDefault();
@@ -126,7 +144,7 @@ export default function PaginaCampanhas() {
       origem: "manual",
       status: "ativa",
     });
-    registrarMensagem("Campanha criada. Agora voce pode buscar leads no Maps e importar para ela.", "Campanha criada");
+    registrarMensagem("Campanha criada. Agora você pode buscar leads no Maps e importar para ela.", "Campanha criada");
     setForm(FORM_INICIAL);
     salvarCampanhaAtiva(campanha.id);
     await carregar();
@@ -208,7 +226,7 @@ export default function PaginaCampanhas() {
       <div>
         <h2 style={{ fontSize: 26, fontWeight: 800 }}>Campanhas</h2>
         <p style={{ color: "var(--text-secondary)", marginTop: 4 }}>
-          Organize leads por nicho, cidade ou disparo. Ex: Lash Julho, Pizzarias Centro, Agro Triangulo.
+          Organize leads por nicho, cidade ou disparo. Ex: Lash Julho, Pizzarias Centro, Agro Triângulo.
         </p>
       </div>
 
@@ -232,9 +250,9 @@ export default function PaginaCampanhas() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {[
-          ["Empresas unicas", resumoGeral.empresasUnicas],
+          ["Empresas únicas", resumoGeral.empresasUnicas],
           ["Sem abordagem", resumoGeral.semAbordagem],
-          ["Responderam sem acao", resumoGeral.responderamSemProximaAcao],
+          ["Responderam sem ação", resumoGeral.responderamSemProximaAcao],
         ].map(([label, valor]) => (
           <div key={label} className="glass-panel" style={{ padding: 16 }}>
             <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>{label}</div>
@@ -259,14 +277,66 @@ export default function PaginaCampanhas() {
         <Botao type="submit">Criar campanha</Botao>
       </form>
 
+      <section className="glass-panel" style={{ padding: 14, display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(180px, 260px) auto", gap: 12, alignItems: "end" }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)" }}>Buscar campanha</label>
+          <input
+            value={buscaCampanha}
+            onChange={(e) => setBuscaCampanha(e.target.value)}
+            placeholder="Nome, nicho ou cidade"
+            style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 8, border: "1px solid var(--panel-border)" }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)" }}>Situação</label>
+          <select
+            value={filtroSituacao}
+            onChange={(e) => setFiltroSituacao(e.target.value)}
+            style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 8, border: "1px solid var(--panel-border)", background: "#fff" }}
+          >
+            <option value="">Todas</option>
+            <option value="Follow-up hoje">Follow-up hoje</option>
+            <option value="Com respostas">Com respostas</option>
+            <option value="Precisa abordar">Precisa abordar</option>
+            <option value="Em acompanhamento">Em acompanhamento</option>
+            <option value="Sem leads">Sem leads</option>
+          </select>
+        </div>
+        <Botao tipo="outline" onClick={() => { setBuscaCampanha(""); setFiltroSituacao(""); }}>Limpar</Botao>
+      </section>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-        {campanhasComMetricas.map(({ campanha }) => {
+        {campanhasComMetricas.length === 0 && (
+          <div className="glass-panel" style={{ padding: 24, color: "var(--text-secondary)", textAlign: "center", gridColumn: "1 / -1" }}>
+            Nenhuma campanha encontrada com os filtros atuais.
+          </div>
+        )}
+        {campanhasComMetricas.map(({ campanha, situacao, op }) => {
           const m = metricas(campanha.id);
           return (
             <section key={campanha.id} className="glass-panel" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 800 }}>{campanha.nome}</h3>
-                <p style={{ color: "var(--text-secondary)", fontSize: 12 }}>{campanha.nicho || "Geral"} - {campanha.cidade || "Uberlandia"}</p>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800 }}>{campanha.nome}</h3>
+                  <p style={{ color: "var(--text-secondary)", fontSize: 12 }}>{campanha.nicho || "Geral"} - {campanha.cidade || "Uberlandia"}</p>
+                </div>
+                <span style={{ flex: "0 0 auto", background: op.followupsHoje || op.respostas || op.pendentesAbordagem ? "var(--success-soft)" : "#f8fafc", color: op.followupsHoje || op.respostas || op.pendentesAbordagem ? "var(--primary)" : "var(--text-secondary)", border: "1px solid var(--panel-border)", borderRadius: 999, padding: "5px 9px", fontSize: 11, fontWeight: 800 }}>
+                  {situacao}
+                </span>
+              </div>
+              <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 10, background: "#fff" }}>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>Próxima melhor ação</div>
+                <strong style={{ fontSize: 14 }}>
+                  {op.followupsHoje > 0
+                    ? `Fazer ${op.followupsHoje} follow-up(s) hoje`
+                    : op.respostas > 0
+                      ? `Tratar ${op.respostas} resposta(s)`
+                      : op.pendentesAbordagem > 0
+                        ? `Abordar ${op.pendentesAbordagem} lead(s)`
+                        : m.total > 0
+                          ? "Acompanhar campanha"
+                          : "Buscar leads para começar"}
+                </strong>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, textAlign: "center" }}>
                 {[["Leads", m.total], ["Whats", m.whatsapp], ["Contato", m.contatados], ["Resp.", m.responderam], ["Hoje", m.followupsHoje], ["Fech.", m.fechados]].map(([label, valor]) => (
@@ -299,7 +369,7 @@ export default function PaginaCampanhas() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 420, overflowY: "auto" }}>
           {empresasDisponiveis.length === 0 ? (
-            <p style={{ color: "var(--text-secondary)" }}>Nenhuma empresa disponivel para adicionar.</p>
+          <p style={{ color: "var(--text-secondary)" }}>Nenhuma empresa disponível para adicionar.</p>
           ) : empresasDisponiveis.map((empresa) => (
             <label key={empresa.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 10, alignItems: "center", border: "1px solid var(--panel-border)", borderRadius: 8, padding: 10, cursor: "pointer" }}>
               <input type="checkbox" checked={selecionadas.includes(empresa.id)} onChange={() => alternarEmpresa(empresa.id)} />
@@ -316,7 +386,7 @@ export default function PaginaCampanhas() {
         {confirmacaoExclusao && (
           <>
             <p style={{ color: "var(--text-secondary)" }}>
-              A campanha &quot;{confirmacaoExclusao.nome}&quot; sera excluida. As empresas continuam cadastradas no CRM.
+              A campanha &quot;{confirmacaoExclusao.nome}&quot; será excluída. As empresas continuam cadastradas no CRM.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <Botao tipo="outline" onClick={() => setConfirmacaoExclusao(null)}>Cancelar</Botao>

@@ -280,7 +280,7 @@ export default function PaginaAbordagens() {
       setEmpresas(dadosAtualizados);
       setIndice(0);
       setTotalFilaCriada(0);
-      const mensagemFinal = `Parabens! ${totalFinalizado} lead(s) finalizados. Acao tomada: ${acao}.`;
+      const mensagemFinal = `Parabéns! ${totalFinalizado} lead(s) finalizados. Ação tomada: ${acao}.`;
       setStatus(mensagemFinal);
       notificar(mensagemFinal, "Acao finalizada");
       setConclusao({
@@ -314,7 +314,7 @@ export default function PaginaAbordagens() {
       setTotalFilaCriada(0);
       const acao = `status marcado como ${statusLead}`;
       setStatus("Fila finalizada. Todas as acoes foram registradas no CRM.");
-      notificar(`Fila finalizada. Ultima acao: ${acao}.`, "Fila finalizada");
+      notificar(`Fila finalizada. Última ação: ${acao}.`, "Fila finalizada");
       setConclusao({
         titulo: "Fila finalizada",
         total: totalFilaCriada || fila.length || 1,
@@ -424,12 +424,12 @@ export default function PaginaAbordagens() {
         </section>
       </div>
 
-      <Modal aberto={Boolean(conclusao)} titulo={conclusao?.titulo || "Acao finalizada"} aoFechar={() => setConclusao(null)}>
+      <Modal aberto={Boolean(conclusao)} titulo={conclusao?.titulo || "Ação finalizada"} aoFechar={() => setConclusao(null)}>
         {conclusao && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ border: "1px solid #bbf7d0", background: "var(--success-soft)", borderRadius: 8, padding: 18 }}>
               <h3 style={{ color: "var(--primary)", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
-                Parabens, acao finalizada.
+                Parabéns, ação finalizada.
               </h3>
               <p style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 700 }}>
                 {conclusao.total} lead(s) processado(s).
@@ -437,7 +437,7 @@ export default function PaginaAbordagens() {
             </div>
 
             <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 14 }}>
-              <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Acao tomada</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Ação tomada</div>
               <div style={{ color: "var(--text-primary)", fontWeight: 700, marginTop: 6 }}>{conclusao.acao}</div>
               {conclusao.data && (
                 <div style={{ color: "var(--text-secondary)", marginTop: 8 }}>Data do follow-up: {conclusao.data}</div>
