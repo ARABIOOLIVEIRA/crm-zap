@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Botao from "../../../componentes/Botao";
 import Input from "../../../componentes/Input";
@@ -155,7 +155,7 @@ export default function PaginaEmpresas() {
   const [selecionadosMaps, setSelecionadosMaps] = useState([]);
   const [importandoMaps, setImportandoMaps] = useState(false);
 
-  async function carregarEmpresas() {
+  const carregarEmpresas = useCallback(async function carregarEmpresas() {
     setCarregando(true);
     try {
       const ativa = obterCampanhaAtiva();
@@ -166,37 +166,46 @@ export default function PaginaEmpresas() {
     } finally {
       setCarregando(false);
     }
-  }
+  }, [filtroLista]);
 
   useEffect(() => {
-    carregarEmpresas();
-  }, []);
+    const timer = window.setTimeout(() => {
+      carregarEmpresas();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregarEmpresas]);
 
   useEffect(() => {
     if (!listas.length || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("abrirBusca") !== "1") return;
     const campanhaAtual = listas.find((lista) => lista.id === (filtroLista || obterCampanhaAtiva()));
-    if (campanhaAtual) {
-      setListaExistenteBusca(campanhaAtual.id);
-      setNomeListaBusca(campanhaAtual.nome || "");
-      setNichoListaBusca(campanhaAtual.nicho || "");
-      setCidadeListaBusca(campanhaAtual.cidade || "Uberlandia");
-      setTermoBuscaMaps(campanhaAtual.termo_busca || campanhaAtual.nicho || campanhaAtual.nome || "");
-    }
-    setModalBuscaAberto(true);
-    window.history.replaceState({}, "", "/painel/empresas");
+    const timer = window.setTimeout(() => {
+      if (campanhaAtual) {
+        setListaExistenteBusca(campanhaAtual.id);
+        setNomeListaBusca(campanhaAtual.nome || "");
+        setNichoListaBusca(campanhaAtual.nicho || "");
+        setCidadeListaBusca(campanhaAtual.cidade || "Uberlandia");
+        setTermoBuscaMaps(campanhaAtual.termo_busca || campanhaAtual.nicho || campanhaAtual.nome || "");
+      }
+      setModalBuscaAberto(true);
+      window.history.replaceState({}, "", "/painel/empresas");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [listas, filtroLista]);
 
   useEffect(() => {
     if (!cardAberto) return;
-    setDetalhesCard({
-      status: cardAberto.etapa_funil || cardAberto.status || "Novo lead",
-      observacoes: cardAberto.observacoes || "",
-      proximo_followup: cardAberto.proximo_followup || "",
-      followup_observacao: cardAberto.followup_observacao || "",
-      mensagem_sugerida: cardAberto.mensagem_sugerida || criarMensagemPadrao(cardAberto),
-    });
+    const timer = window.setTimeout(() => {
+      setDetalhesCard({
+        status: cardAberto.etapa_funil || cardAberto.status || "Novo lead",
+        observacoes: cardAberto.observacoes || "",
+        proximo_followup: cardAberto.proximo_followup || "",
+        followup_observacao: cardAberto.followup_observacao || "",
+        mensagem_sugerida: cardAberto.mensagem_sugerida || criarMensagemPadrao(cardAberto),
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [cardAberto]);
 
   async function aplicarFiltroLista(listaId) {

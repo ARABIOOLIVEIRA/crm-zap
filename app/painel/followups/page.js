@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { atualizarCamposEmpresa, criarLinkWhatsApp, criarListaProspecao, listarEmpresas, listarListasProspecao } from "../../../banco_de_dados/empresas_db";
 import Botao from "../../../componentes/Botao";
 import { obterCampanhaAtiva, salvarCampanhaAtiva } from "../../../utilitarios/campanhaAtiva";
@@ -15,6 +15,50 @@ function estaAtiva(empresa) {
 
 function etapaComercial(empresa) {
   return empresa?.etapa_funil || empresa?.status || "Novo lead";
+}
+
+function FollowupCard({ empresa, hoje, atualizarFollowup, abrirWhatsApp }) {
+  const [data, setData] = useState(empresa.proximo_followup || hoje);
+  const [obs, setObs] = useState(empresa.followup_observacao || "");
+
+  return (
+    <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
+      <strong>{empresa.nome}</strong>
+      <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{etapaComercial(empresa)} - {empresa.whatsapp || "sem WhatsApp"}</div>
+      {empresa.followup_status === "concluido" && (
+        <div style={{ color: "var(--primary)", fontSize: 12, fontWeight: 800 }}>
+          Concluido {empresa.followup_concluido_em ? new Date(empresa.followup_concluido_em).toLocaleDateString("pt-BR") : ""}
+        </div>
+      )}
+      <input type="date" value={data} onChange={(e) => setData(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid var(--panel-border)" }} />
+      <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observacao do follow-up" style={{ padding: 8, borderRadius: 8, border: "1px solid var(--panel-border)" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { proximo_followup: data, followup_status: "pendente", followup_observacao: obs, followup_concluido_em: "" }, "Follow-up salvo.")} style={{ padding: "7px", fontSize: 12 }}>Salvar data</Botao>
+        <Botao tipo="outline" onClick={() => abrirWhatsApp(empresa)} style={{ padding: "7px", fontSize: 12 }}>WhatsApp</Botao>
+        <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { proximo_followup: "", followup_status: "concluido", followup_concluido_em: new Date().toISOString(), followup_observacao: obs }, "Follow-up concluido.")} style={{ padding: "7px", fontSize: 12 }}>Concluir</Botao>
+        <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { proximo_followup: "", followup_status: "cancelado", followup_observacao: obs, followup_concluido_em: "" }, "Follow-up removido da rotina.")} style={{ padding: "7px", fontSize: 12 }}>Remover</Botao>
+      </div>
+    </div>
+  );
+}
+
+function FollowupBloco({ titulo, dados, hoje, atualizarFollowup, abrirWhatsApp }) {
+  return (
+    <section className="glass-panel" style={{ padding: 16, minHeight: 420, maxHeight: "calc(100vh - 330px)", overflowY: "auto" }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>{titulo} ({dados.length})</h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {dados.length === 0 ? <p style={{ color: "var(--text-secondary)" }}>Nada aqui.</p> : dados.map((empresa) => (
+          <FollowupCard
+            key={`${empresa.id}-${empresa.proximo_followup || ""}-${empresa.followup_status || ""}-${empresa.followup_observacao || ""}`}
+            empresa={empresa}
+            hoje={hoje}
+            atualizarFollowup={atualizarFollowup}
+            abrirWhatsApp={abrirWhatsApp}
+          />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default function PaginaFollowups() {
@@ -34,7 +78,7 @@ export default function PaginaFollowups() {
     window.crmZapNotificar?.(texto, titulo);
   }
 
-  async function carregar(listaId = filtroLista) {
+  const carregar = useCallback(async function carregar(listaId = filtroLista) {
     const ativa = listaId || obterCampanhaAtiva();
     if (ativa && !filtroLista) setFiltroLista(ativa);
     const [dados, listas] = await Promise.all([
@@ -43,11 +87,14 @@ export default function PaginaFollowups() {
     ]);
     setEmpresas(dados);
     setListasProspecao(listas);
-  }
+  }, [filtroLista]);
 
   useEffect(() => {
-    carregar(filtroLista);
-  }, [filtroLista]);
+    const timer = window.setTimeout(() => {
+      carregar(filtroLista);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregar, filtroLista]);
 
   useEffect(() => {
     if (!undo) return;
@@ -211,49 +258,6 @@ export default function PaginaFollowups() {
     }
   }
 
-  function Card({ empresa }) {
-    const [data, setData] = useState(empresa.proximo_followup || hoje);
-    const [obs, setObs] = useState(empresa.followup_observacao || "");
-
-    useEffect(() => {
-      setData(empresa.proximo_followup || hoje);
-      setObs(empresa.followup_observacao || "");
-    }, [empresa.id, empresa.proximo_followup, empresa.followup_observacao]);
-
-    return (
-      <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
-        <strong>{empresa.nome}</strong>
-        <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{etapaComercial(empresa)} - {empresa.whatsapp || "sem WhatsApp"}</div>
-        {empresa.followup_status === "concluido" && (
-          <div style={{ color: "var(--primary)", fontSize: 12, fontWeight: 800 }}>
-            Concluido {empresa.followup_concluido_em ? new Date(empresa.followup_concluido_em).toLocaleDateString("pt-BR") : ""}
-          </div>
-        )}
-        <input type="date" value={data} onChange={(e) => setData(e.target.value)} style={{ padding: 8, borderRadius: 8, border: "1px solid var(--panel-border)" }} />
-        <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observacao do follow-up" style={{ padding: 8, borderRadius: 8, border: "1px solid var(--panel-border)" }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { proximo_followup: data, followup_status: "pendente", followup_observacao: obs, followup_concluido_em: "" }, "Follow-up salvo.")} style={{ padding: "7px", fontSize: 12 }}>Salvar data</Botao>
-          <Botao tipo="outline" onClick={() => abrirWhatsApp(empresa)} style={{ padding: "7px", fontSize: 12 }}>WhatsApp</Botao>
-          <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { followup_status: "concluido", followup_concluido_em: new Date().toISOString(), followup_observacao: obs }, "Follow-up concluido.")} style={{ padding: "7px", fontSize: 12 }}>Concluir</Botao>
-          <Botao tipo="outline" onClick={() => atualizarFollowup(empresa, { proximo_followup: "", followup_status: "cancelado", followup_observacao: obs, followup_concluido_em: "" }, "Follow-up removido da rotina.")} style={{ padding: "7px", fontSize: 12 }}>Remover</Botao>
-        </div>
-      </div>
-    );
-  }
-
-  function Bloco({ titulo, dados }) {
-    return (
-      <section className="glass-panel" style={{ padding: 16, minHeight: 420, maxHeight: "calc(100vh - 330px)", overflowY: "auto" }}>
-        <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 12 }}>{titulo} ({dados.length})</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {dados.length === 0 ? <p style={{ color: "var(--text-secondary)" }}>Nada aqui.</p> : dados.map((empresa) => (
-            <Card key={empresa.id} empresa={empresa} />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div>
@@ -313,11 +317,11 @@ export default function PaginaFollowups() {
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 14, alignItems: "start" }}>
-        <Bloco titulo="Hoje" dados={listas.hoje} />
-        <Bloco titulo="Atrasados" dados={listas.atrasados} />
-        <Bloco titulo="Proximos" dados={listas.proximos} />
-        <Bloco titulo="Sem proxima acao" dados={listas.semAcao} />
-        <Bloco titulo="Concluidos" dados={listas.concluidos} />
+        <FollowupBloco titulo="Hoje" dados={listas.hoje} hoje={hoje} atualizarFollowup={atualizarFollowup} abrirWhatsApp={abrirWhatsApp} />
+        <FollowupBloco titulo="Atrasados" dados={listas.atrasados} hoje={hoje} atualizarFollowup={atualizarFollowup} abrirWhatsApp={abrirWhatsApp} />
+        <FollowupBloco titulo="Proximos" dados={listas.proximos} hoje={hoje} atualizarFollowup={atualizarFollowup} abrirWhatsApp={abrirWhatsApp} />
+        <FollowupBloco titulo="Sem proxima acao" dados={listas.semAcao} hoje={hoje} atualizarFollowup={atualizarFollowup} abrirWhatsApp={abrirWhatsApp} />
+        <FollowupBloco titulo="Concluidos" dados={listas.concluidos} hoje={hoje} atualizarFollowup={atualizarFollowup} abrirWhatsApp={abrirWhatsApp} />
       </div>
     </div>
   );

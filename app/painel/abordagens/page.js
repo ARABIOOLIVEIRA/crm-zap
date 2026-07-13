@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { atualizarCamposEmpresa, listarEmpresas, listarListasProspecao, normalizarTelefone } from "../../../banco_de_dados/empresas_db";
 import Botao from "../../../componentes/Botao";
 import Modal from "../../../componentes/Modal";
@@ -353,7 +354,7 @@ export default function PaginaAbordagens() {
           <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={onImagem} />
           {modelo.imagemDataUrl && (
             <div>
-              <img src={modelo.imagemDataUrl} alt="Imagem da abordagem" style={{ width: "100%", maxHeight: 220, objectFit: "contain", border: "1px solid var(--panel-border)", borderRadius: 8 }} />
+              <Image src={modelo.imagemDataUrl} alt="Imagem da abordagem" width={640} height={360} unoptimized style={{ width: "100%", maxHeight: 220, objectFit: "contain", border: "1px solid var(--panel-border)", borderRadius: 8 }} />
               <Botao tipo="outline" onClick={() => setModelo({ ...modelo, imagemNome: "", imagemDataUrl: "" })}>Remover imagem</Botao>
             </div>
           )}

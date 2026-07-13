@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Botao from "../../../componentes/Botao";
 import Modal from "../../../componentes/Modal";
 import { adicionarEmpresasNaCampanha, criarListaProspecao, excluirCampanha, listarEmpresas, listarListasProspecao } from "../../../banco_de_dados/empresas_db";
@@ -36,7 +36,7 @@ export default function PaginaCampanhas() {
     window.crmZapNotificar?.(texto, titulo);
   }
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     const [listas, empresas] = await Promise.all([
       listarListasProspecao(),
       listarEmpresas().catch(() => []),
@@ -53,11 +53,14 @@ export default function PaginaCampanhas() {
       });
     });
     setEmpresasPorCampanha(agrupadas);
-  }
+  }, []);
 
   useEffect(() => {
-    carregar();
-  }, []);
+    const timer = window.setTimeout(() => {
+      carregar();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregar]);
 
   const resumoGeral = useMemo(() => {
     const totalEmpresas = Object.values(empresasPorCampanha).reduce((acc, lista) => acc + lista.length, 0);

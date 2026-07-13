@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Botao from "../../../componentes/Botao";
 import { listarListasProspecao } from "../../../banco_de_dados/empresas_db";
 import { obterCampanhaAtiva, salvarCampanhaAtiva } from "../../../utilitarios/campanhaAtiva";
@@ -55,7 +55,7 @@ export default function PaginaDashboard() {
   const [campanhas, setCampanhas] = useState([]);
   const [campanhaId, setCampanhaId] = useState("");
 
-  async function carregarDashboard(id = campanhaId) {
+  const carregarDashboard = useCallback(async function carregarDashboard(id = campanhaId) {
     setCarregando(true);
     setErro("");
     try {
@@ -71,14 +71,17 @@ export default function PaginaDashboard() {
     } finally {
       setCarregando(false);
     }
-  }
+  }, [campanhaId]);
 
   useEffect(() => {
-    const ativa = obterCampanhaAtiva();
-    setCampanhaId(ativa);
-    listarListasProspecao().then(setCampanhas).catch(() => []);
-    carregarDashboard(ativa);
-  }, []);
+    const timer = window.setTimeout(() => {
+      const ativa = obterCampanhaAtiva();
+      setCampanhaId(ativa);
+      listarListasProspecao().then(setCampanhas).catch(() => []);
+      carregarDashboard(ativa);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregarDashboard]);
 
   function trocarCampanha(id) {
     setCampanhaId(id);
@@ -86,7 +89,7 @@ export default function PaginaDashboard() {
     carregarDashboard(id);
   }
 
-  const metricas = dados?.metricas || {};
+  const metricas = useMemo(() => dados?.metricas || {}, [dados]);
   const principais = useMemo(() => {
     return METRICAS_PRINCIPAIS.map(([label, chave]) => [label, metricas[chave] || 0]);
   }, [metricas]);

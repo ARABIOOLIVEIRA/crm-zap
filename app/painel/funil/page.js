@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { STATUS_LEAD, atualizarCamposEmpresa, criarLinkWhatsApp, criarListaProspecao, listarEmpresas, listarListasProspecao } from "../../../banco_de_dados/empresas_db";
 import Botao from "../../../componentes/Botao";
 import Modal from "../../../componentes/Modal";
@@ -66,7 +66,7 @@ export default function PaginaFunil() {
     window.crmZapNotificar?.(texto, titulo);
   }
 
-  async function carregar() {
+  const carregar = useCallback(async function carregar() {
     setCarregando(true);
     try {
       const ativa = filtroLista || obterCampanhaAtiva();
@@ -76,11 +76,14 @@ export default function PaginaFunil() {
     } finally {
       setCarregando(false);
     }
-  }
+  }, [filtroLista]);
 
   useEffect(() => {
-    carregar();
-  }, [filtroLista]);
+    const timer = window.setTimeout(() => {
+      carregar();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregar]);
 
   useEffect(() => {
     if (!undo) return;
@@ -90,12 +93,15 @@ export default function PaginaFunil() {
 
   useEffect(() => {
     if (!cardAberto) return;
-    setDetalhesCard({
-      observacoes: cardAberto.observacoes || "",
-      proximo_followup: cardAberto.proximo_followup || "",
-      followup_observacao: cardAberto.followup_observacao || "",
-      status: cardAberto.etapa_funil || cardAberto.status || "Novo lead",
-    });
+    const timer = window.setTimeout(() => {
+      setDetalhesCard({
+        observacoes: cardAberto.observacoes || "",
+        proximo_followup: cardAberto.proximo_followup || "",
+        followup_observacao: cardAberto.followup_observacao || "",
+        status: cardAberto.etapa_funil || cardAberto.status || "Novo lead",
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [cardAberto]);
 
   const porStatus = useMemo(() => {
