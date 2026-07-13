@@ -395,7 +395,7 @@ export default function PaginaEmpresas() {
     if (!selecionados.length) return;
     window.localStorage.setItem(chaveFilaCampanha(filtroLista || obterCampanhaAtiva()), JSON.stringify(selecionados));
     window.localStorage.setItem("crm_zap_fila_abordagem_ids", JSON.stringify(selecionados));
-    window.location.href = "/painel/abordagens";
+    window.location.assign("/painel/abordagens");
   }
 
   async function adicionarSelecionadosNaCampanhaAtual() {
@@ -611,7 +611,7 @@ export default function PaginaEmpresas() {
           )}
           <Botao tipo="outline" onClick={exportarExcel}>Exportar Excel</Botao>
           <Botao onClick={() => setModalBuscaAberto(true)} style={{ backgroundColor: "#2563eb" }}>Buscar no Maps</Botao>
-          <Botao tipo="outline" onClick={() => window.location.href = "/painel/campanhas"}>Campanhas</Botao>
+          <Botao tipo="outline" onClick={() => window.location.assign("/painel/campanhas")}>Campanhas</Botao>
           <label style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "10px 20px", borderRadius: "8px", border: "1px solid var(--panel-border)", color: "var(--text-primary)", background: "#fff", fontWeight: 600, fontSize: "14px", cursor: "pointer" }}>
             Importar
             <input type="file" accept=".xlsx,.xls,.csv" onChange={importarPlanilha} style={{ display: "none" }} />

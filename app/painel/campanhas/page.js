@@ -66,6 +66,7 @@ export default function PaginaCampanhas() {
     const totalEmpresas = Object.values(empresasPorCampanha).reduce((acc, lista) => acc + lista.length, 0);
     const hoje = hojeIso();
     const empresasUnicas = Array.from(new Map(todasEmpresas.map((empresa) => [empresa.id, empresa])).values());
+    const empresasEmCampanhas = Object.values(empresasPorCampanha).flat();
     const followupsHoje = empresasUnicas.filter((empresa) =>
       empresa.proximo_followup === hoje && empresa.followup_status !== "concluido" && empresa.followup_status !== "cancelado"
     ).length;
@@ -75,7 +76,16 @@ export default function PaginaCampanhas() {
     const responderamSemProximaAcao = empresasUnicas.filter((empresa) =>
       etapaComercial(empresa) === "Respondeu" && !empresa.proximo_followup
     ).length;
-    return { campanhas: campanhas.length, totalEmpresas, empresasUnicas: empresasUnicas.length, followupsHoje, semAbordagem, responderamSemProximaAcao };
+    const pendentesAbordagem = empresasEmCampanhas.filter((empresa) =>
+      etapaComercial(empresa) === "Novo lead" &&
+      empresa.abordagem_status !== "envio_confirmado" &&
+      (empresa.whatsapp || empresa.telefone)
+    ).length;
+    const enviados = empresasEmCampanhas.filter((empresa) => empresa.abordagem_status === "envio_confirmado").length;
+    const respostas = empresasEmCampanhas.filter((empresa) =>
+      ["Respondeu", "Aguardando retorno", "Reuniao marcada", "Proposta enviada", "Fechado"].includes(etapaComercial(empresa))
+    ).length;
+    return { campanhas: campanhas.length, totalEmpresas, empresasUnicas: empresasUnicas.length, followupsHoje, semAbordagem, responderamSemProximaAcao, pendentesAbordagem, enviados, respostas };
   }, [campanhas, empresasPorCampanha, todasEmpresas]);
 
   function metricasOperacionais(empresas = []) {
@@ -97,16 +107,14 @@ export default function PaginaCampanhas() {
     return { pendentesAbordagem, enviados, respostas, followupsHoje };
   }
 
-  const campanhaEmAndamento = useMemo(() => {
+  const campanhasComMetricas = useMemo(() => {
     return campanhas
       .map((campanha) => {
         const empresas = empresasPorCampanha[campanha.id] || [];
         const op = metricasOperacionais(empresas);
-        const peso = op.followupsHoje * 4 + op.respostas * 3 + op.pendentesAbordagem * 2 + op.enviados;
-        return { campanha, empresas, op, peso };
+        return { campanha, empresas, op };
       })
-      .filter((item) => item.empresas.length > 0)
-      .sort((a, b) => b.peso - a.peso || String(b.campanha.atualizado_em || "").localeCompare(String(a.campanha.atualizado_em || "")))[0] || null;
+      .sort((a, b) => String(b.campanha.atualizado_em || "").localeCompare(String(a.campanha.atualizado_em || "")));
   }, [campanhas, empresasPorCampanha]);
 
   async function criarCampanha(e) {
@@ -126,12 +134,12 @@ export default function PaginaCampanhas() {
 
   function abrirCampanha(campanha, rota) {
     salvarCampanhaAtiva(campanha.id);
-    window.location.href = rota;
+    window.location.assign(rota);
   }
 
   function buscarLeads(campanha) {
     salvarCampanhaAtiva(campanha.id);
-    window.location.href = "/painel/empresas?abrirBusca=1";
+    window.location.assign("/painel/empresas?abrirBusca=1");
   }
 
   function criarAbordagem(campanha) {
@@ -141,7 +149,7 @@ export default function PaginaCampanhas() {
       .map((empresa) => empresa.id);
     window.localStorage.setItem(chaveFilaCampanha(campanha.id), JSON.stringify(ids));
     window.localStorage.setItem("crm_zap_fila_abordagem_ids", JSON.stringify(ids));
-    window.location.href = "/painel/abordagens";
+    window.location.assign("/painel/abordagens");
   }
 
   function metricas(campanhaId) {
@@ -207,42 +215,24 @@ export default function PaginaCampanhas() {
       {mensagem && <div className="glass-panel" style={{ padding: 12, color: "var(--primary)", fontWeight: 700 }}>{mensagem}</div>}
 
       <section className="glass-panel" style={{ padding: 18, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, alignItems: "stretch" }}>
-        <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 14, background: "#fff" }}>
-          <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Campanha em andamento</div>
-          <h3 style={{ fontSize: 20, fontWeight: 800, marginTop: 8 }}>
-            {campanhaEmAndamento?.campanha.nome || "Nenhuma campanha ativa"}
-          </h3>
-          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 4 }}>
-            {campanhaEmAndamento ? `${campanhaEmAndamento.empresas.length} lead(s) nesta campanha` : "Crie uma campanha ou importe leads para comecar."}
-          </p>
-        </div>
         {[
-          ["Pendentes de abordagem", campanhaEmAndamento?.op.pendentesAbordagem || 0],
-          ["Leads enviados", campanhaEmAndamento?.op.enviados || 0],
-          ["Respostas", campanhaEmAndamento?.op.respostas || 0],
-          ["Follow-ups hoje", campanhaEmAndamento?.op.followupsHoje || 0],
+          ["Campanhas ativas", resumoGeral.campanhas],
+          ["Leads em campanhas", resumoGeral.totalEmpresas],
+          ["Pendentes de abordagem", resumoGeral.pendentesAbordagem],
+          ["Leads enviados", resumoGeral.enviados],
+          ["Respostas", resumoGeral.respostas],
+          ["Follow-ups hoje", resumoGeral.followupsHoje],
         ].map(([label, valor]) => (
           <div key={label} style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 14, background: "#fff" }}>
             <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>{label}</div>
             <div style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>{valor}</div>
           </div>
         ))}
-        {campanhaEmAndamento && (
-          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
-            <Botao onClick={() => criarAbordagem(campanhaEmAndamento.campanha)} style={{ padding: "8px", fontSize: 12 }}>Continuar abordagem</Botao>
-            <Botao tipo="outline" onClick={() => abrirCampanha(campanhaEmAndamento.campanha, "/painel/followups")} style={{ padding: "8px", fontSize: 12 }}>Ver follow-ups</Botao>
-            <Botao tipo="outline" onClick={() => abrirCampanha(campanhaEmAndamento.campanha, "/painel/funil")} style={{ padding: "8px", fontSize: 12 }}>Ver funil</Botao>
-            <Botao tipo="outline" onClick={() => buscarLeads(campanhaEmAndamento.campanha)} style={{ padding: "8px", fontSize: 12 }}>Buscar mais leads</Botao>
-          </div>
-        )}
       </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {[
-          ["Campanhas", resumoGeral.campanhas],
           ["Empresas unicas", resumoGeral.empresasUnicas],
-          ["Leads em campanhas", resumoGeral.totalEmpresas],
-          ["Follow-ups hoje", resumoGeral.followupsHoje],
           ["Sem abordagem", resumoGeral.semAbordagem],
           ["Responderam sem acao", resumoGeral.responderamSemProximaAcao],
         ].map(([label, valor]) => (
@@ -270,7 +260,7 @@ export default function PaginaCampanhas() {
       </form>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-        {campanhas.map((campanha) => {
+        {campanhasComMetricas.map(({ campanha }) => {
           const m = metricas(campanha.id);
           return (
             <section key={campanha.id} className="glass-panel" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
