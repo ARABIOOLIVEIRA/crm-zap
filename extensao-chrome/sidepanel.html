@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>CRM ZAP</title>
+    <style>
+      :root { --green:#16a34a; --dark:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; }
+      * { box-sizing: border-box; }
+      body { width: 100%; margin: 0; padding: 14px; font-family: Arial, sans-serif; color: var(--dark); background: var(--bg); }
+      h1 { font-size: 20px; margin: 0; color: var(--green); }
+      h2 { font-size: 15px; margin: 16px 0 8px; }
+      p { font-size: 12px; color: var(--muted); line-height: 1.4; }
+      label { display: block; margin-top: 10px; font-size: 12px; font-weight: 700; }
+      input, textarea, select { width: 100%; margin-top: 5px; padding: 9px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; color: var(--dark); }
+      textarea { min-height: 70px; resize: vertical; }
+      button { width: 100%; margin-top: 10px; padding: 10px; border: 0; border-radius: 8px; background: var(--green); color: white; font-weight: 700; cursor: pointer; }
+      button.secondary { background: white; color: var(--dark); border: 1px solid #cbd5e1; }
+      button.danger { background: #dc2626; }
+      button:disabled { opacity: .45; cursor: not-allowed; }
+      .card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 10px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .status { margin-top: 10px; font-size: 12px; color: #166534; white-space: pre-wrap; }
+      .error { color: #b91c1c; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .message { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; background: #fff; }
+      .message textarea { min-height: 48px; }
+      .toolbar { display: flex; gap: 8px; }
+      .toolbar button { margin-top: 0; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>CRM ZAP</h1>
+    <p>Abra uma conversa no WhatsApp Web. Nada será enviado antes da sua confirmação.</p>
+
+    <section class="card">
+      <label>URL do CRM</label>
+      <input id="crmUrl" placeholder="https://crm-zap-five.vercel.app" />
+      <label>Token de importação</label>
+      <input id="token" type="password" placeholder="Token seguro" />
+      <button id="saveConfig" class="secondary">Salvar configuração</button>
+    </section>
+
+    <section class="card">
+      <div id="detected" class="muted">Abra uma conversa no WhatsApp Web para começar.</div>
+      <button id="readChat">Ler conversa aberta</button>
+      <button id="diagnostics" class="secondary">Diagnóstico</button>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section id="review" class="hidden">
+      <h2>1. Contato</h2>
+      <div class="card">
+        <label>Nome</label><input id="contactName" />
+        <label>Empresa</label><input id="companyName" />
+        <div class="row">
+          <div><label>WhatsApp</label><input id="whatsapp" /></div>
+          <div><label>Telefone</label><input id="phone" /></div>
+        </div>
+        <div class="row">
+          <div><label>Cidade</label><input id="city" value="Uberlandia" /></div>
+          <div><label>Nicho</label><input id="niche" value="WhatsApp" /></div>
+        </div>
+        <label>Observações</label><textarea id="notes"></textarea>
+        <div id="matchInfo" class="muted"></div>
+      </div>
+
+      <h2>2. Conversa</h2>
+      <div class="card" id="conversationSummary"></div>
+
+      <h2>3. Mensagens</h2>
+      <div class="card">
+        <label><input id="metadataOnly" type="checkbox" style="width:auto" /> Importar apenas metadados de mídias</label>
+        <div class="toolbar">
+          <button id="selectAll" class="secondary">Selecionar todas</button>
+          <button id="clearAll" class="secondary">Desmarcar todas</button>
+        </div>
+        <div id="messages"></div>
+      </div>
+
+      <h2>4. Destino no CRM</h2>
+      <div class="card">
+        <select id="destination">
+          <option value="">Escolha o destino</option>
+          <option value="create_company">Criar nova empresa</option>
+          <option value="update_company">Atualizar cadastro existente</option>
+          <option value="conversation_only">Importar somente a conversa</option>
+        </select>
+        <button id="validateData">Validar dados</button>
+        <button id="sendCrm" disabled>Enviar para o CRM</button>
+        <button id="cancel" class="danger">Cancelar importação</button>
+      </div>
+    </section>
+
+    <script src="storage.js"></script>
+    <script src="api-client.js"></script>
+    <script src="validator.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

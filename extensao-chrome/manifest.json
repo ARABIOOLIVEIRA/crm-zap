@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "CRM ZAP Importador",
+  "version": "0.2.0",
+  "description": "Lê e importa manualmente a conversa aberta do WhatsApp Web para o CRM ZAP.",
+  "permissions": ["storage", "sidePanel", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://crm-zap-five.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "CRM ZAP"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": [
+        "selectors.js",
+        "normalizer.js",
+        "contact-reader.js",
+        "conversation-reader.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

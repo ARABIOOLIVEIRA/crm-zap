@@ -1,0 +1,26 @@
+node_modules/
+.next/
+.firebase/
+out/
+build/
+dist/
+.vercel/
+scratch/
+
+.env
+.env.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+.env.vercel.local
+.env*.local
+
+*.backup
+firebase-debug.log
+
+# Chaves de conta de serviço
+*-firebase-adminsdk-*.json
+service-account*.json
+.vercel
+.env*
