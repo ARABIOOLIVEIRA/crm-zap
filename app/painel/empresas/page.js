@@ -111,7 +111,7 @@ function dadosFunilAposEnvio(empresa) {
     return {
       status: "Contatado",
       etapa_funil: "Contatado",
-      detalhe: "Funil avancou de Novo lead para Contatado.",
+      detalhe: "Funil avançou de Novo lead para Contatado.",
     };
   }
   return {
@@ -132,8 +132,13 @@ export default function PaginaEmpresas() {
   const [selecionados, setSelecionados] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState("");
   const [filtroLista, setFiltroLista] = useState("");
+  const [filtroNicho, setFiltroNicho] = useState("");
+  const [filtroCidade, setFiltroCidade] = useState("");
+  const [filtroWhatsApp, setFiltroWhatsApp] = useState("");
   const [buscaTexto, setBuscaTexto] = useState("");
   const [listas, setListas] = useState([]);
+  const [campanhaDestinoLote, setCampanhaDestinoLote] = useState("");
+  const [mensagemTela, setMensagemTela] = useState("");
   const [cardAberto, setCardAberto] = useState(null);
   const [detalhesCard, setDetalhesCard] = useState({
     status: "Novo lead",
@@ -224,8 +229,16 @@ export default function PaginaEmpresas() {
   const empresasFiltradas = useMemo(() => {
     const texto = buscaTexto.toLowerCase().trim();
     return empresas.filter((empresa) => {
-      const bateStatus = !filtroStatus || empresa.status === filtroStatus;
-      const textoEmpresa = [empresa.nome, empresa.nicho, empresa.bairro, empresa.whatsapp, empresa.telefone, empresa.endereco]
+      const etapa = empresa.etapa_funil || empresa.status || "Novo lead";
+      const bateStatus = !filtroStatus || etapa === filtroStatus;
+      const bateNicho = !filtroNicho || (empresa.nicho || empresa.categoria || "Geral") === filtroNicho;
+      const bateCidade = !filtroCidade || (empresa.cidade || "Uberlandia") === filtroCidade;
+      const temWhatsApp = Boolean(empresa.whatsapp || empresa.telefone);
+      const bateWhatsApp =
+        !filtroWhatsApp ||
+        (filtroWhatsApp === "com" && temWhatsApp) ||
+        (filtroWhatsApp === "sem" && !temWhatsApp);
+      const textoEmpresa = [empresa.nome, empresa.nicho, empresa.categoria, empresa.cidade, empresa.bairro, empresa.whatsapp, empresa.telefone, empresa.endereco]
           .filter(Boolean)
           .join(" ")
         .toLowerCase();
@@ -233,11 +246,19 @@ export default function PaginaEmpresas() {
         !texto ||
         textoEmpresa.includes(texto) ||
         telefoneCombina(texto, [empresa.whatsapp, empresa.telefone, empresa.whatsapp_normalizado, empresa.telefone_normalizado]);
-      return bateStatus && bateTexto;
+      return bateStatus && bateNicho && bateCidade && bateWhatsApp && bateTexto;
     });
-  }, [empresas, filtroStatus, buscaTexto]);
+  }, [empresas, filtroStatus, filtroNicho, filtroCidade, filtroWhatsApp, buscaTexto]);
 
   const resumo = useMemo(() => textoResumoStatus(empresas), [empresas]);
+  const opcoesNicho = useMemo(() => Array.from(new Set(empresas.map((empresa) => empresa.nicho || empresa.categoria || "Geral").filter(Boolean))).sort(), [empresas]);
+  const opcoesCidade = useMemo(() => Array.from(new Set(empresas.map((empresa) => empresa.cidade || "Uberlandia").filter(Boolean))).sort(), [empresas]);
+  const empresasSelecionadas = useMemo(() => empresas.filter((empresa) => selecionados.includes(empresa.id)), [empresas, selecionados]);
+
+  function registrarMensagem(texto, titulo = "Empresas") {
+    setMensagemTela(texto);
+    window.crmZapNotificar?.(texto, titulo);
+  }
 
   async function atualizarEmpresaComHistorico(empresa, campos, titulo, detalhe) {
     const historico_atividades = adicionarHistoricoEmpresa(empresa, titulo, detalhe);
@@ -287,8 +308,8 @@ export default function PaginaEmpresas() {
         followup_observacao: detalhesCard.followup_observacao,
         mensagem_sugerida: detalhesCard.mensagem_sugerida,
       };
-      await atualizarEmpresaComHistorico(cardAberto, campos, "Card atualizado", "Dados, observacoes ou follow-up atualizados no card da empresa.");
-      alert("Card salvo.");
+      await atualizarEmpresaComHistorico(cardAberto, campos, "Card atualizado", "Dados, observações ou follow-up atualizados no card da empresa.");
+      registrarMensagem("Card salvo com histórico atualizado.", "Card salvo");
     } catch (erro) {
       alert("Erro ao salvar card: " + erro.message);
     }
@@ -339,16 +360,16 @@ export default function PaginaEmpresas() {
 
   async function salvarObservacaoRapida(empresa, observacoes) {
     try {
-      await atualizarEmpresaComHistorico(empresa, { observacoes }, "Observacao atualizada", observacoes || "Observacao limpa.");
+      await atualizarEmpresaComHistorico(empresa, { observacoes }, "Observação atualizada", observacoes || "Observação limpa.");
     } catch (erro) {
-      alert("Erro ao salvar observacao: " + erro.message);
+      alert("Erro ao salvar observação: " + erro.message);
     }
   }
 
   async function registrarContatoManual(empresa) {
     const link = criarLinkWhatsApp(empresa);
     if (!link) {
-      alert("Esta empresa nao tem WhatsApp valido.");
+      alert("Esta empresa não tem WhatsApp válido.");
       return;
     }
     try {
@@ -358,7 +379,7 @@ export default function PaginaEmpresas() {
       };
       await atualizarEmpresaComHistorico(empresa, campos, "WhatsApp aberto", "Link do WhatsApp aberto pela aba Empresas.");
     } catch (erro) {
-      alert("Nao consegui registrar a abertura no CRM: " + erro.message);
+      alert("Não consegui registrar a abertura no CRM: " + erro.message);
     }
     window.open(link, "_blank", "noopener,noreferrer");
   }
@@ -399,11 +420,42 @@ export default function PaginaEmpresas() {
   }
 
   async function adicionarSelecionadosNaCampanhaAtual() {
-    if (!selecionados.length || !filtroLista) return;
-    await adicionarEmpresasNaCampanha(filtroLista, selecionados);
-    alert(`${selecionados.length} empresa(s) adicionada(s) na campanha atual.`);
+    const destino = campanhaDestinoLote || filtroLista;
+    if (!selecionados.length || !destino) return;
+    await adicionarEmpresasNaCampanha(destino, selecionados);
+    registrarMensagem(`${selecionados.length} empresa(s) adicionada(s) na campanha.`, "Empresas adicionadas");
     setSelecionados([]);
+    setCampanhaDestinoLote("");
     await carregarEmpresas();
+  }
+
+  async function marcarSelecionadosComoEnviado() {
+    if (!empresasSelecionadas.length) return;
+    for (const empresa of empresasSelecionadas) {
+      const dadosFunil = dadosFunilAposEnvio(empresa);
+      const campos = {
+        abordagem_status: "envio_confirmado",
+        ultimo_contato: new Date().toISOString(),
+        ...(dadosFunil.status ? { status: dadosFunil.status, etapa_funil: dadosFunil.etapa_funil } : {}),
+      };
+      await atualizarEmpresaComHistorico(empresa, campos, "Mensagem enviada", `Contato marcado como enviado em lote. ${dadosFunil.detalhe}`);
+    }
+    registrarMensagem(`${empresasSelecionadas.length} lead(s) marcados como enviados.`, "Ação em lote");
+    setSelecionados([]);
+  }
+
+  async function marcarSelecionadosComoRespondido() {
+    if (!empresasSelecionadas.length) return;
+    for (const empresa of empresasSelecionadas) {
+      await atualizarEmpresaComHistorico(empresa, {
+        abordagem_status: "respondeu",
+        ultimo_contato: new Date().toISOString(),
+        status: "Respondeu",
+        etapa_funil: "Respondeu",
+      }, "Cliente respondeu", "Lead marcado como respondeu em lote.");
+    }
+    registrarMensagem(`${empresasSelecionadas.length} lead(s) marcados como responderam.`, "Ação em lote");
+    setSelecionados([]);
   }
 
   async function removerEmpresa(id) {
@@ -468,7 +520,7 @@ export default function PaginaEmpresas() {
         }
 
         if (!filtroLista) {
-          alert("Selecione ou crie uma campanha antes de importar planilha. Assim os leads nao ficam soltos.");
+          alert("Selecione ou crie uma campanha antes de importar planilha. Assim os leads não ficam soltos.");
           return;
         }
         const campanhaAtual = listas.find((lista) => lista.id === filtroLista);
@@ -573,7 +625,7 @@ export default function PaginaEmpresas() {
 
       const resultado = await importarEmpresasEmLoteComLista(escolhidas, listaProspecao);
       setResumoImportacao(resultado);
-      alert(`Pesquisa concluida\nResultados: ${escolhidas.length}\nNovas empresas: ${resultado.novas || 0}\nJa cadastradas: ${resultado.existentes || 0}\nSem WhatsApp: ${resultado.semWhatsapp || 0}`);
+      registrarMensagem(`Pesquisa concluída: ${resultado.novas || 0} novas, ${resultado.existentes || 0} já cadastradas, ${resultado.semWhatsapp || 0} sem WhatsApp.`, "Busca no Maps");
       setModalBuscaAberto(false);
       setTermoBuscaMaps("");
       setResultadosMaps([]);
@@ -602,13 +654,6 @@ export default function PaginaEmpresas() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px, auto))", gap: "10px", alignItems: "center" }}>
-          {selecionados.length > 0 && (
-            <>
-              <Botao onClick={criarFilaAbordagem}>Criar abordagem ({selecionados.length})</Botao>
-              {filtroLista && <Botao tipo="outline" onClick={adicionarSelecionadosNaCampanhaAtual}>Adicionar na campanha</Botao>}
-              <Botao tipo="danger" onClick={removerSelecionados}>Excluir ({selecionados.length})</Botao>
-            </>
-          )}
           <Botao tipo="outline" onClick={exportarExcel}>Exportar Excel</Botao>
           <Botao onClick={() => setModalBuscaAberto(true)} style={{ backgroundColor: "#2563eb" }}>Buscar no Maps</Botao>
           <Botao tipo="outline" onClick={() => window.location.assign("/painel/campanhas")}>Campanhas</Botao>
@@ -620,11 +665,34 @@ export default function PaginaEmpresas() {
         </div>
       </div>
 
+      {mensagemTela && (
+        <div className="glass-panel" style={{ padding: 12, color: "var(--primary)", fontWeight: 700 }}>
+          {mensagemTela}
+        </div>
+      )}
+
+      {selecionados.length > 0 && (
+        <section className="glass-panel" style={{ padding: 14, display: "grid", gridTemplateColumns: "minmax(180px, 1fr) repeat(5, auto)", gap: 10, alignItems: "end" }}>
+          <Input
+            type="select"
+            label={`${selecionados.length} selecionada(s)`}
+            value={campanhaDestinoLote}
+            onChange={(e) => setCampanhaDestinoLote(e.target.value)}
+            options={[{ value: "", label: filtroLista ? "Usar campanha filtrada" : "Escolha uma campanha" }, ...listas.map((lista) => ({ value: lista.id, label: lista.nome }))]}
+          />
+          <Botao onClick={criarFilaAbordagem}>Criar abordagem</Botao>
+          <Botao tipo="outline" onClick={adicionarSelecionadosNaCampanhaAtual} disabled={!(campanhaDestinoLote || filtroLista)}>Adicionar na campanha</Botao>
+          <Botao tipo="outline" onClick={marcarSelecionadosComoEnviado}>Marcar enviado</Botao>
+          <Botao tipo="outline" onClick={marcarSelecionadosComoRespondido}>Responderam</Botao>
+          <Botao tipo="danger" onClick={removerSelecionados}>Excluir</Botao>
+        </section>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px, 1fr))", gap: "12px" }}>
         {[
           ["Total", resumo.total],
           ["Com WhatsApp", resumo.comWhatsApp],
-          ["Ja movimentados", resumo.contatados],
+          ["Já movimentados", resumo.contatados],
         ].map(([label, valor]) => (
           <div key={label} className="glass-panel" style={{ padding: "16px" }}>
             <div style={{ color: "var(--text-secondary)", fontSize: "12px", fontWeight: 700, textTransform: "uppercase" }}>{label}</div>
@@ -635,11 +703,11 @@ export default function PaginaEmpresas() {
 
       {resumoImportacao && (
         <div className="glass-panel" style={{ padding: "14px", color: "var(--primary)", fontWeight: 700 }}>
-          Pesquisa concluida: {resumoImportacao.novas || 0} novas, {resumoImportacao.existentes || 0} ja cadastradas, {resumoImportacao.semWhatsapp || 0} sem WhatsApp.
+          Pesquisa concluída: {resumoImportacao.novas || 0} novas, {resumoImportacao.existentes || 0} já cadastradas, {resumoImportacao.semWhatsapp || 0} sem WhatsApp.
         </div>
       )}
 
-      <div className="glass-panel" style={{ display: "grid", gridTemplateColumns: "1.3fr 1.1fr 1fr auto", gap: "12px", padding: "16px", alignItems: "end" }}>
+      <div className="glass-panel" style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(150px, 1fr)) auto", gap: "12px", padding: "16px", alignItems: "end" }}>
         <Input
           type="select"
           label="Campanha"
@@ -647,7 +715,7 @@ export default function PaginaEmpresas() {
           onChange={(e) => aplicarFiltroLista(e.target.value)}
           options={[{ value: "", label: "Todas as campanhas" }, ...listas.map((lista) => ({ value: lista.id, label: lista.nome }))]}
         />
-        <Input placeholder="Buscar por nome, nicho, bairro ou numero do WhatsApp" value={buscaTexto} onChange={(e) => setBuscaTexto(e.target.value)} />
+        <Input label="Busca" placeholder="Nome, bairro ou número" value={buscaTexto} onChange={(e) => setBuscaTexto(e.target.value)} />
         <Input
           type="select"
           label="Etapa"
@@ -655,7 +723,32 @@ export default function PaginaEmpresas() {
           onChange={(e) => setFiltroStatus(e.target.value)}
           options={[{ value: "", label: "Todos os status" }, ...STATUS_LEAD.map((status) => ({ value: status, label: status }))]}
         />
-        <Botao tipo="outline" onClick={() => { setBuscaTexto(""); setFiltroStatus(""); aplicarFiltroLista(""); }}>Limpar filtros</Botao>
+        <Input
+          type="select"
+          label="Nicho"
+          value={filtroNicho}
+          onChange={(e) => setFiltroNicho(e.target.value)}
+          options={[{ value: "", label: "Todos os nichos" }, ...opcoesNicho.map((nicho) => ({ value: nicho, label: nicho }))]}
+        />
+        <Input
+          type="select"
+          label="Cidade"
+          value={filtroCidade}
+          onChange={(e) => setFiltroCidade(e.target.value)}
+          options={[{ value: "", label: "Todas as cidades" }, ...opcoesCidade.map((cidade) => ({ value: cidade, label: cidade }))]}
+        />
+        <Input
+          type="select"
+          label="WhatsApp"
+          value={filtroWhatsApp}
+          onChange={(e) => setFiltroWhatsApp(e.target.value)}
+          options={[
+            { value: "", label: "Todos" },
+            { value: "com", label: "Com WhatsApp" },
+            { value: "sem", label: "Sem WhatsApp" },
+          ]}
+        />
+        <Botao tipo="outline" onClick={() => { setBuscaTexto(""); setFiltroStatus(""); setFiltroNicho(""); setFiltroCidade(""); setFiltroWhatsApp(""); aplicarFiltroLista(""); }}>Limpar</Botao>
       </div>
 
       <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Exibindo {empresasFiltradas.length} de {empresas.length} empresas carregadas.</p>
@@ -672,9 +765,9 @@ export default function PaginaEmpresas() {
           "Empresa",
           "Nicho",
           "WhatsApp",
-          "Status",
-          "Observacao",
-          "Acoes",
+          "Etapa",
+          "Observação",
+          "Ações",
         ]}>
           {empresasFiltradas.map((empresa) => (
             <tr key={empresa.id} style={{ borderBottom: "1px solid var(--panel-border)" }}>
@@ -689,7 +782,8 @@ export default function PaginaEmpresas() {
                 >
                   {empresa.nome}
                 </button>
-                <div style={{ color: "var(--text-secondary)", fontSize: "12px" }}>{empresa.bairro || empresa.endereco || "Sem endereco"}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: "12px" }}>{empresa.bairro || empresa.endereco || "Sem endereço"}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: "11px", marginTop: 3 }}>{empresa.cidade || "Uberlandia"}</div>
               </td>
               <td style={{ padding: "14px 16px" }}>{empresa.nicho || empresa.categoria || "Geral"}</td>
               <td style={{ padding: "14px 16px", color: "#22c55e", fontWeight: 700 }}>{empresa.whatsapp || "-"}</td>
@@ -710,7 +804,7 @@ export default function PaginaEmpresas() {
                       salvarObservacaoRapida(empresa, e.target.value);
                     }
                   }}
-                  placeholder="Anote algo rapido"
+                  placeholder="Anote algo rápido"
                   style={{ width: "100%", padding: "8px", borderRadius: "8px", background: "#ffffff", color: "var(--text-primary)", border: "1px solid var(--panel-border)" }}
                 />
               </td>
@@ -739,7 +833,7 @@ export default function PaginaEmpresas() {
             <Input label="WhatsApp" required value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
             <Input label="Telefone" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
           </div>
-          <Input label="Endereco" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
+          <Input label="Endereço" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <Input label="Bairro" value={form.bairro} onChange={(e) => setForm({ ...form, bairro: e.target.value })} />
             <Input label="Site / Link" value={form.site} onChange={(e) => setForm({ ...form, site: e.target.value })} />
@@ -752,7 +846,7 @@ export default function PaginaEmpresas() {
             options={STATUS_LEAD.map((status) => ({ value: status, label: status }))}
           />
           <Input label="Mensagem para WhatsApp" value={form.mensagem_sugerida} onChange={(e) => setForm({ ...form, mensagem_sugerida: e.target.value })} />
-          <Input label="Observacoes" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
+          <Input label="Observações" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", paddingTop: "12px", borderTop: "1px solid var(--panel-border)" }}>
             <Botao tipo="outline" onClick={() => setModalAberto(false)}>Cancelar</Botao>
             <Botao type="submit">Salvar</Botao>
@@ -763,6 +857,24 @@ export default function PaginaEmpresas() {
       <Modal aberto={Boolean(cardAberto)} titulo={cardAberto?.nome || "Card da empresa"} aoFechar={() => setCardAberto(null)}>
         {cardAberto && (
           <>
+            <section style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 14, background: "#f8fafc", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "start" }}>
+              <div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Próxima ação sugerida</div>
+                <strong style={{ display: "block", marginTop: 6 }}>
+                  {cardAberto.proximo_followup
+                    ? `Retornar em ${String(cardAberto.proximo_followup).split("-").reverse().join("/")}`
+                    : (cardAberto.etapa_funil || cardAberto.status) === "Respondeu"
+                      ? "Responder e definir próximo passo"
+                      : cardAberto.abordagem_status === "envio_confirmado"
+                        ? "Acompanhar retorno"
+                        : "Fazer primeira abordagem"}
+                </strong>
+              </div>
+              <span style={{ border: "1px solid var(--panel-border)", borderRadius: 999, padding: "6px 10px", color: "var(--primary)", background: "var(--success-soft)", fontWeight: 800, fontSize: 12 }}>
+                {cardAberto.etapa_funil || cardAberto.status || "Novo lead"}
+              </span>
+            </section>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <strong>Status no funil</strong>
@@ -775,7 +887,7 @@ export default function PaginaEmpresas() {
                 </select>
               </div>
               <div>
-                <strong>Proximo follow-up</strong>
+                <strong>Próximo follow-up</strong>
                 <input
                   type="date"
                   value={detalhesCard.proximo_followup}
@@ -786,11 +898,13 @@ export default function PaginaEmpresas() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", color: "var(--text-secondary)", fontSize: 13 }}>
-              <div><strong style={{ color: "var(--text-primary)" }}>WhatsApp:</strong> {cardAberto.whatsapp || cardAberto.telefone || "sem numero"}</div>
+              <div><strong style={{ color: "var(--text-primary)" }}>WhatsApp:</strong> {cardAberto.whatsapp || cardAberto.telefone || "sem número"}</div>
               <div><strong style={{ color: "var(--text-primary)" }}>Nicho:</strong> {cardAberto.nicho || cardAberto.categoria || "Geral"}</div>
               <div><strong style={{ color: "var(--text-primary)" }}>Cidade:</strong> {cardAberto.cidade || "Uberlandia"}</div>
               <div><strong style={{ color: "var(--text-primary)" }}>Origem:</strong> {cardAberto.origem || "-"}</div>
-              <div style={{ gridColumn: "1 / -1" }}><strong style={{ color: "var(--text-primary)" }}>Endereco:</strong> {cardAberto.endereco || cardAberto.bairro || "-"}</div>
+              <div><strong style={{ color: "var(--text-primary)" }}>Abordagem:</strong> {cardAberto.abordagem_status || "pendente"}</div>
+              <div><strong style={{ color: "var(--text-primary)" }}>Último contato:</strong> {cardAberto.ultimo_contato ? new Date(cardAberto.ultimo_contato).toLocaleDateString("pt-BR") : "-"}</div>
+              <div style={{ gridColumn: "1 / -1" }}><strong style={{ color: "var(--text-primary)" }}>Endereço:</strong> {cardAberto.endereco || cardAberto.bairro || "-"}</div>
             </div>
 
             <div>
@@ -803,7 +917,7 @@ export default function PaginaEmpresas() {
             </div>
 
             <div>
-              <strong>Observacoes do CRM</strong>
+              <strong>Observações do CRM</strong>
               <textarea
                 value={detalhesCard.observacoes}
                 onChange={(e) => setDetalhesCard({ ...detalhesCard, observacoes: e.target.value })}
@@ -812,7 +926,7 @@ export default function PaginaEmpresas() {
             </div>
 
             <div>
-              <strong>Observacao do follow-up</strong>
+              <strong>Observação do follow-up</strong>
               <input
                 value={detalhesCard.followup_observacao}
                 onChange={(e) => setDetalhesCard({ ...detalhesCard, followup_observacao: e.target.value })}
@@ -826,16 +940,17 @@ export default function PaginaEmpresas() {
               <Botao tipo="outline" onClick={() => registrarContatoManual(cardAberto)}>WhatsApp</Botao>
               <Botao tipo="outline" onClick={() => confirmarContatoManual(cardAberto)}>Marcar enviado</Botao>
               <Botao tipo="outline" onClick={() => marcarComoRespondeu(cardAberto)}>Respondeu</Botao>
+              <Botao tipo="outline" onClick={() => abrirEdicao(cardAberto)}>Editar cadastro</Botao>
             </div>
 
             <section style={{ borderTop: "1px solid var(--panel-border)", paddingTop: 12 }}>
-              <h4 style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>Historico do card</h4>
+              <h4 style={{ fontSize: 15, fontWeight: 800, marginBottom: 10 }}>Histórico do card</h4>
               {!(cardAberto.historico_atividades || []).length ? (
-                <p style={{ color: "var(--text-secondary)" }}>Nenhuma acao registrada ainda.</p>
+                <p style={{ color: "var(--text-secondary)" }}>Nenhuma ação registrada ainda.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 260, overflowY: "auto" }}>
                   {(cardAberto.historico_atividades || []).map((item) => (
-                    <div key={item.id} style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 10, background: "#fff" }}>
+                    <div key={item.id} style={{ borderLeft: "3px solid var(--primary)", borderTop: "1px solid var(--panel-border)", borderRight: "1px solid var(--panel-border)", borderBottom: "1px solid var(--panel-border)", borderRadius: 8, padding: 10, background: "#fff" }}>
                       <strong>{item.titulo}</strong>
                       <div style={{ color: "var(--text-secondary)", fontSize: 12, marginTop: 3 }}>{item.detalhe}</div>
                       <div style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 3 }}>
@@ -851,6 +966,11 @@ export default function PaginaEmpresas() {
       </Modal>
 
       <Modal aberto={modalBuscaAberto} titulo="Buscar Empresas no Google Maps" aoFechar={() => setModalBuscaAberto(false)}>
+        <div style={{ border: "1px solid var(--panel-border)", borderRadius: 8, padding: 12, background: "#f8fafc", color: "var(--text-secondary)", fontSize: 13 }}>
+          {listaExistenteBusca
+            ? `Os leads selecionados serão adicionados na campanha: ${listas.find((lista) => lista.id === listaExistenteBusca)?.nome || "campanha selecionada"}.`
+            : "Os leads selecionados criarão uma nova campanha com o nome, nicho e cidade abaixo."}
+        </div>
         <form onSubmit={buscarNoMaps} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <Input label="Termo de busca" placeholder="Ex: Lash Designer Uberlandia" value={termoBuscaMaps} onChange={(e) => {
             setTermoBuscaMaps(e.target.value);
