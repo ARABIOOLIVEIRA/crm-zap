@@ -24,3 +24,7 @@ firebase-debug.log
 service-account*.json
 .vercel
 .env*
+!.env.example
+!.env.development.example
+!.env.staging.example
+!.env.production.example

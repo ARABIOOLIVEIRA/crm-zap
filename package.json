@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:env": "node scripts/verificar-ambiente.mjs",
     "verificar:firebase": "node scripts/verificar-firebase.mjs"
   },
   "dependencies": {

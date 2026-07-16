@@ -1,4 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema Lumio
+
+Sistema interno da Lumio para evoluir o CRM comercial e, futuramente, centralizar clientes, recepção, agendamentos, fichas digitais de gravação, assinatura e documentos.
+
+## Ambientes
+
+Este projeto não deve reutilizar Firebase antigo ou banco de outro projeto.
+
+- Desenvolvimento: `lumio-crm-dev`
+- Teste: `lumio-crm-staging`
+- Oficial: `lumio-crm-prod`
+
+Leia [docs/AMBIENTES.md](docs/AMBIENTES.md) antes de configurar deploy, Firebase ou Vercel.
+
+## Configuração Local
+
+Copie um dos exemplos abaixo para `.env.local` e preencha as chaves reais fora do Git:
+
+- `.env.development.example`
+- `.env.staging.example`
+- `.env.production.example`
+
+Antes de build/deploy:
+
+```bash
+npm run check:env
+npm run lint
+npm run build
+```
+
+## Desenvolvimento
 
 ## Getting Started
 
