@@ -67,6 +67,73 @@ function empresaDaLinhaPlanilha(linha) {
   };
 }
 
+function valorPlanilha(valor) {
+  return String(valor ?? "").trim();
+}
+
+function dataExcelParaTexto(valor) {
+  if (!valor) return "";
+  if (typeof valor !== "number") return valorPlanilha(valor);
+  const data = XLSX.SSF.parse_date_code(valor);
+  if (!data) return "";
+  return `${String(data.d).padStart(2, "0")}/${String(data.m).padStart(2, "0")}/${data.y}`;
+}
+
+function linhasHistoricoAgendamento(livro) {
+  const abasResumo = livro.SheetNames.filter((nome) => nome.toLowerCase().includes("resumo"));
+  const abasParaLer = abasResumo.length ? abasResumo : livro.SheetNames;
+
+  return abasParaLer.flatMap((nomeAba) => {
+    const linhas = XLSX.utils.sheet_to_json(livro.Sheets[nomeAba], { header: 1, defval: "" });
+    const indiceCabecalho = linhas.findIndex((linha) =>
+      linha.some((celula) => valorPlanilha(celula).toUpperCase() === "CLIENTE")
+    );
+    if (indiceCabecalho < 0) return [];
+
+    const cabecalhos = linhas[indiceCabecalho].map((item) => valorPlanilha(item).toUpperCase());
+    return linhas.slice(indiceCabecalho + 1).map((linha) => {
+      const registro = {};
+      cabecalhos.forEach((cabecalho, indice) => {
+        if (cabecalho) registro[cabecalho] = linha[indice];
+      });
+      return { ...registro, __aba: nomeAba };
+    }).filter((linha) => valorPlanilha(linha.CLIENTE));
+  });
+}
+
+function empresaDoHistoricoAgendamento(linha) {
+  const sessoes = valorPlanilha(linha["SESSÕES"] || linha["SESSOES"]);
+  const primeira = dataExcelParaTexto(linha["PRIMEIRA GRAVAÇÃO"] || linha["PRIMEIRA GRAVACAO"] || linha.DATA);
+  const ultima = dataExcelParaTexto(linha["ÚLTIMA GRAVAÇÃO"] || linha["ULTIMA GRAVACAO"] || linha.DATA);
+  const tipo = valorPlanilha(linha.TIPO);
+  const local = valorPlanilha(linha.LOCAL);
+  const detalhe = valorPlanilha(linha.DETALHE);
+  const whatsapp = normalizarTelefone(linha.WHATSAPP || linha.TELEFONE || "");
+  const observacoes = [
+    linha.__aba ? `Origem: ${linha.__aba}` : "",
+    sessoes ? `Sessões: ${sessoes}` : "",
+    primeira ? `Primeira gravação: ${primeira}` : "",
+    ultima ? `Última gravação: ${ultima}` : "",
+    linha["HORÁRIO"] ? `Horário: ${valorPlanilha(linha["HORÁRIO"])}` : "",
+    tipo ? `Tipo: ${tipo}` : "",
+    local ? `Local: ${local}` : "",
+    detalhe && detalhe !== "-" ? `Detalhe: ${detalhe}` : "",
+    !whatsapp ? "WhatsApp pendente para preencher manualmente." : "",
+  ].filter(Boolean).join("\n");
+
+  return {
+    nome: valorPlanilha(linha.CLIENTE),
+    nicho: tipo || "Cliente de gravação",
+    categoria: tipo || "Cliente de gravação",
+    cidade: "Uberlandia",
+    telefone: whatsapp,
+    whatsapp,
+    origem: "Histórico de agendamento",
+    status: "Novo lead",
+    observacoes,
+  };
+}
+
 function textoResumoStatus(empresas) {
   const total = empresas.length;
   const comWhatsApp = empresas.filter((e) => e.whatsapp).length;
@@ -502,9 +569,12 @@ export default function PaginaEmpresas() {
     leitor.onload = async (evento) => {
       try {
         const livro = XLSX.read(evento.target.result, { type: "binary" });
-        const nomeAba = livro.SheetNames[0];
-        const linhas = XLSX.utils.sheet_to_json(livro.Sheets[nomeAba]);
-        const formatadas = linhas.map(empresaDaLinhaPlanilha).filter((empresa) => empresa.nome && empresa.whatsapp);
+        const linhasHistorico = linhasHistoricoAgendamento(livro);
+        const formatadas = linhasHistorico.length
+          ? linhasHistorico.map(empresaDoHistoricoAgendamento).filter((empresa) => empresa.nome)
+          : XLSX.utils.sheet_to_json(livro.Sheets[livro.SheetNames[0]])
+            .map(empresaDaLinhaPlanilha)
+            .filter((empresa) => empresa.nome);
 
         const novas = formatadas.filter((empresa) => {
           return !empresas.some((existente) => {
@@ -519,21 +589,23 @@ export default function PaginaEmpresas() {
           return;
         }
 
-        if (!filtroLista) {
-          alert("Selecione ou crie uma campanha antes de importar planilha. Assim os leads não ficam soltos.");
-          return;
-        }
         const campanhaAtual = listas.find((lista) => lista.id === filtroLista);
+        const nomeArquivo = arquivo.name.replace(/\.(xlsx|xls|csv)$/i, "");
         const resultado = await importarEmpresasEmLoteComLista(novas, {
-          id: filtroLista,
-          nome: campanhaAtual?.nome || "Campanha selecionada",
-          nicho: campanhaAtual?.nicho || "",
+          id: filtroLista || "",
+          nome: campanhaAtual?.nome || `Importação - ${nomeArquivo}`,
+          nicho: campanhaAtual?.nicho || "Histórico de agendamento",
           cidade: campanhaAtual?.cidade || "Uberlandia",
           origem: "planilha",
           status: "ativa",
         });
-        alert(`${resultado.novas || resultado.total || 0} empresa(s) importada(s) na campanha.`);
-        await carregarEmpresas();
+        const semWhatsApp = novas.filter((empresa) => !empresa.whatsapp).length;
+        registrarMensagem(`${resultado.novas || resultado.total || 0} empresa(s) importada(s). ${semWhatsApp} sem WhatsApp para preencher manualmente.`, "Importação concluída");
+        if (resultado.lista?.id) {
+          await aplicarFiltroLista(resultado.lista.id);
+        } else {
+          await carregarEmpresas();
+        }
       } catch (erro) {
         alert("Erro ao importar planilha: " + erro.message);
       }
