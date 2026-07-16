@@ -5,13 +5,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { auth } from "@/servicos/firebase_config";
 
-const itensMenu = [
-  { nome: "Campanhas", rota: "/painel/campanhas" },
-  { nome: "Empresas", rota: "/painel/empresas" },
-  { nome: "Abordagens", rota: "/painel/abordagens" },
-  { nome: "Follow-ups", rota: "/painel/followups" },
-  { nome: "Funil", rota: "/painel/funil" },
-  { nome: "Dashboard", rota: "/painel/dashboard" },
+const gruposMenu = [
+  {
+    titulo: "Administracao",
+    itens: [
+      { nome: "Usuarios", rota: "/painel/usuarios" },
+      { nome: "Configuracoes", rota: "/painel/configuracoes" },
+    ],
+  },
+  {
+    titulo: "Producao",
+    itens: [
+      { nome: "Clientes", rota: "/painel/clientes" },
+      { nome: "Tarefas", rota: "/painel/tarefas" },
+    ],
+  },
+  {
+    titulo: "Financeiro",
+    itens: [
+      { nome: "Clientes", rota: "/painel/clientes" },
+      { nome: "Tarefas", rota: "/painel/tarefas" },
+    ],
+  },
+  {
+    titulo: "Comercial",
+    itens: [
+      { nome: "Clientes", rota: "/painel/clientes" },
+      { nome: "Campanhas", rota: "/painel/campanhas" },
+      { nome: "Empresas / Leads", rota: "/painel/empresas" },
+      { nome: "Abordagens", rota: "/painel/abordagens" },
+      { nome: "Follow-ups", rota: "/painel/followups" },
+      { nome: "Funil", rota: "/painel/funil" },
+      { nome: "Dashboard", rota: "/painel/dashboard" },
+    ],
+  },
+  {
+    titulo: "Marketing",
+    itens: [
+      { nome: "Campanhas", rota: "/painel/campanhas" },
+      { nome: "Clientes", rota: "/painel/clientes" },
+    ],
+  },
 ];
 
 export default function LayoutPainel({ children }) {
@@ -152,33 +186,40 @@ export default function LayoutPainel({ children }) {
         }}
       >
         <div>
-          <h1 style={{ color: "var(--primary)", fontSize: "24px", fontWeight: 800, letterSpacing: 0 }}>CRM ZAP</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "12px", marginTop: "4px" }}>Prospecção manual segura</p>
+          <h1 style={{ color: "var(--primary)", fontSize: "24px", fontWeight: 800, letterSpacing: 0 }}>LUMIO</h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "12px", marginTop: "4px" }}>Sistema operacional Lumio</p>
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
-          {itensMenu.map((item) => {
-            const ativo = pathname === item.rota || pathname.startsWith(`${item.rota}/`);
-            return (
-              <Link
-                key={item.rota}
-                href={item.rota}
-                onClick={() => isMobile && setMobileOpen(false)}
-                style={{
-                  textDecoration: "none",
-                  color: ativo ? "var(--primary)" : "var(--text-primary)",
-                  background: ativo ? "var(--success-soft)" : "transparent",
-                  border: ativo ? "1px solid #bbf7d0" : "1px solid transparent",
-                  borderRadius: "8px",
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  fontWeight: ativo ? 700 : 600,
-                }}
-              >
-                {item.nome}
-              </Link>
-            );
-          })}
+        <nav style={{ display: "flex", flexDirection: "column", gap: "14px", flex: 1, overflowY: "auto", paddingRight: 2 }}>
+          {gruposMenu.map((grupo) => (
+            <div key={grupo.titulo} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>
+                {grupo.titulo}
+              </span>
+              {grupo.itens.map((item) => {
+                const ativo = pathname === item.rota || pathname.startsWith(`${item.rota}/`);
+                return (
+                  <Link
+                    key={`${grupo.titulo}-${item.rota}-${item.nome}`}
+                    href={item.rota}
+                    onClick={() => isMobile && setMobileOpen(false)}
+                    style={{
+                      textDecoration: "none",
+                      color: ativo ? "var(--primary)" : "var(--text-primary)",
+                      background: ativo ? "var(--success-soft)" : "transparent",
+                      border: ativo ? "1px solid #bbf7d0" : "1px solid transparent",
+                      borderRadius: "8px",
+                      padding: "9px 10px",
+                      fontSize: "13px",
+                      fontWeight: ativo ? 800 : 600,
+                    }}
+                  >
+                    {item.nome}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <button

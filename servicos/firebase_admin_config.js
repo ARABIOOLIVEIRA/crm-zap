@@ -53,6 +53,30 @@ class LazyAdminDb {
 }
 
 class LazyAdminAuth {
+  createUser(...args) {
+    return getAdminAuth().createUser(...args);
+  }
+
+  deleteUser(...args) {
+    return getAdminAuth().deleteUser(...args);
+  }
+
+  getUserByEmail(...args) {
+    return getAdminAuth().getUserByEmail(...args);
+  }
+
+  listUsers(...args) {
+    return getAdminAuth().listUsers(...args);
+  }
+
+  setCustomUserClaims(...args) {
+    return getAdminAuth().setCustomUserClaims(...args);
+  }
+
+  updateUser(...args) {
+    return getAdminAuth().updateUser(...args);
+  }
+
   verifyIdToken(...args) {
     return getAdminAuth().verifyIdToken(...args);
   }
